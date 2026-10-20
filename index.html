@@ -238,6 +238,31 @@
         .fab:hover { background: #F1F5F9; }
         .fab.on { background: var(--accent-gold); color: #FFF; }
 
+        /* Selector de mapa base */
+        #layer-panel {
+            position: absolute;
+            right: calc(64px + var(--safe-right));
+            bottom: calc(138px + var(--safe-bottom));
+            background: #FFF; border-radius: 12px; box-shadow: var(--shadow-card);
+            padding: 6px; z-index: 920; display: none;
+            min-width: 190px; max-width: calc(100vw - 90px);
+        }
+        #layer-panel.open { display: block; }
+        .lp-title { font-weight: 600; font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: #718096; padding: 6px 10px; }
+        .lp-item {
+            display: flex; align-items: center; gap: 8px; width: 100%;
+            border: none; background: transparent; padding: 10px; min-height: 40px;
+            border-radius: 8px; font: 500 .88rem 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main); cursor: pointer; text-align: left;
+        }
+        .lp-item:hover { background: #F7FAFC; }
+        .lp-item.active { background: #FBF5E8; color: var(--primary-dark); font-weight: 600; }
+        .lp-item i { width: 16px; color: var(--accent-gold); visibility: hidden; }
+        .lp-item.active i { visibility: visible; }
+        @media (max-height: 480px) {
+            #layer-panel { right: auto; left: calc(10px + var(--safe-left)); bottom: calc(72px + var(--safe-bottom)); max-height: calc(100% - 90px); overflow-y: auto; }
+        }
+
         /* Estado de carga / avisos */
         #status {
             position: absolute; inset: 0;
@@ -351,8 +376,10 @@
         <div class="fabs">
             <button class="fab" id="btn-hotel" data-i18n-title="hotel" title="Mi hotel"><i class="fa-solid fa-bed"></i></button>
             <button class="fab" id="btn-locate" data-i18n-title="locate" title="Mi ubicación"><i class="fa-solid fa-location-crosshairs"></i></button>
-            <button class="fab" id="btn-layer" data-i18n-title="satellite" title="Satélite"><i class="fa-solid fa-layer-group"></i></button>
+            <button class="fab" id="btn-layer" data-i18n-title="mapType" title="Tipo de mapa"><i class="fa-solid fa-layer-group"></i></button>
         </div>
+
+        <div id="layer-panel" role="menu"></div>
 
         <div id="status"><div class="spinner"></div><div id="status-text" data-i18n="loading">Cargando puntos de interés…</div></div>
         <div id="toast" role="status"></div>
@@ -383,7 +410,7 @@
         const I18N = {
             es: {
                 subtitle: 'Hotel & Spa • Mendoza', search: 'Buscar lugares…', all: 'Todas las categorías', other: 'Otros',
-                hotel: 'Mi hotel', locate: 'Mi ubicación', satellite: 'Satélite', streets: 'Mapa de calles',
+                hotel: 'Mi hotel', locate: 'Mi ubicación', satellite: 'Satélite', streets: 'Mapa de calles', terrain: 'Terreno', mapType: 'Tipo de mapa', switched: 'El mapa no cargaba: se cambió automáticamente a {n}.',
                 directions: 'Cómo llegar', fromHotel: 'del hotel', fromYou: 'de tu ubicación', walk: 'a pie',
                 noResults: 'Sin resultados', loading: 'Cargando puntos de interés…',
                 errorLoad: 'No se pudieron cargar los puntos de interés. Revisa tu conexión e intenta nuevamente.',
@@ -394,7 +421,7 @@
             },
             en: {
                 subtitle: 'Hotel & Spa • Mendoza', search: 'Search places…', all: 'All categories', other: 'Other',
-                hotel: 'My hotel', locate: 'My location', satellite: 'Satellite', streets: 'Street map',
+                hotel: 'My hotel', locate: 'My location', satellite: 'Satellite', streets: 'Street map', terrain: 'Terrain', mapType: 'Map type', switched: 'The map was not loading: automatically switched to {n}.',
                 directions: 'Get directions', fromHotel: 'from the hotel', fromYou: 'from your location', walk: 'walk',
                 noResults: 'No results', loading: 'Loading points of interest…',
                 errorLoad: 'Points of interest could not be loaded. Check your connection and try again.',
@@ -405,7 +432,7 @@
             },
             pt: {
                 subtitle: 'Hotel & Spa • Mendoza', search: 'Buscar lugares…', all: 'Todas as categorias', other: 'Outros',
-                hotel: 'Meu hotel', locate: 'Minha localização', satellite: 'Satélite', streets: 'Mapa de ruas',
+                hotel: 'Meu hotel', locate: 'Minha localização', satellite: 'Satélite', streets: 'Mapa de ruas', terrain: 'Relevo', mapType: 'Tipo de mapa', switched: 'O mapa não carregava: mudou automaticamente para {n}.',
                 directions: 'Como chegar', fromHotel: 'do hotel', fromYou: 'da sua localização', walk: 'a pé',
                 noResults: 'Sem resultados', loading: 'Carregando pontos de interesse…',
                 errorLoad: 'Não foi possível carregar os pontos de interesse. Verifique sua conexão e tente novamente.',
@@ -567,36 +594,80 @@
         const map = L.map('map', { zoomControl: false, tap: true }).setView([CONFIG.hotel.lat, CONFIG.hotel.lng], 16);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        const tileOpts = { maxZoom: 19, keepBuffer: 4, updateWhenZooming: false };
-        const baseLayers = [
-            // 0: calles (Esri: rápido y sin clave)
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-                Object.assign({ attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, and the GIS User Community' }, tileOpts)),
-            // 1: satélite
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                Object.assign({ attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics' }, tileOpts)),
-            // 2: OpenStreetMap
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                Object.assign({ attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }, tileOpts))
+        const PROVIDERS = [
+            { id: 'esri', name: 'Esri', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+              attr: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, and the GIS User Community', kind: 'street' },
+            { id: 'osm', name: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              attr: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>', kind: 'street' },
+            { id: 'carto', name: 'CARTO', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', sub: 'abcd', retina: true,
+              attr: '&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>', kind: 'street' },
+            { id: 'sat', labelKey: 'satellite', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+              attr: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics', kind: 'sat' },
+            { id: 'topo', labelKey: 'terrain', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', sub: 'abc', maxNative: 17,
+              attr: 'Map data: &copy; OpenStreetMap contributors, SRTM | Style: &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA)', kind: 'topo' }
         ];
-        let baseIdx = 0;
-        function setBase(i) {
-            map.removeLayer(baseLayers[baseIdx]);
-            baseIdx = i;
-            baseLayers[baseIdx].addTo(map);
-            $('btn-layer').classList.toggle('on', baseIdx !== 0);
-            updateLayerTitle();
-        }
-        baseLayers[0].addTo(map);
+        const labelOf = i => PROVIDERS[i].labelKey ? t(PROVIDERS[i].labelKey) : PROVIDERS[i].name;
 
-        // Si el mapa de calles falla repetidamente, pasa solo al otro proveedor
-        let tileErrors = 0;
-        baseLayers[0].on('tileerror', () => {
-            if (++tileErrors === 8 && baseIdx === 0) setBase(2);
+        const providerLayers = PROVIDERS.map(p => L.tileLayer(p.url, {
+            maxZoom: 19, maxNativeZoom: p.maxNative || 19, subdomains: p.sub || 'abc',
+            detectRetina: !!p.retina, keepBuffer: 4, updateWhenZooming: false, attribution: p.attr
+        }));
+
+        let baseIdx = 0;
+        const failedProviders = new Set();
+        try {
+            const saved = localStorage.getItem('agc_basemap');
+            const k = PROVIDERS.findIndex(p => p.id === saved);
+            if (k >= 0) baseIdx = k;
+        } catch (e) {}
+
+        // Vigilancia: si un proveedor da errores o no carga en 15 s, se pasa automáticamente al siguiente
+        function failover(i) {
+            if (baseIdx !== i) return;
+            failedProviders.add(i);
+            const next = PROVIDERS.findIndex((p, k) => p.kind === 'street' && !failedProviders.has(k));
+            if (next < 0) return;
+            setBase(next, true);
+            toast(t('switched').replace('{n}', labelOf(next)), 7000);
+        }
+        providerLayers.forEach((lyr, i) => {
+            let errs = 0, timer = null, first = true;
+            lyr.on('add', () => { first = true; errs = 0; clearTimeout(timer); });
+            lyr.on('tileerror', () => { if (++errs === 6) failover(i); });
+            lyr.on('loading', () => {
+                if (first && baseIdx === i) { first = false; timer = setTimeout(() => failover(i), 15000); }
+            });
+            lyr.on('load', () => clearTimeout(timer));
         });
-        baseLayers[2].on('tileerror', () => {
-            if (++tileErrors === 8 && baseIdx === 2) setBase(0);
-        });
+
+        function setBase(i, auto) {
+            if (i === baseIdx && map.hasLayer(providerLayers[i])) return;
+            if (map.hasLayer(providerLayers[baseIdx])) map.removeLayer(providerLayers[baseIdx]);
+            baseIdx = i;
+            providerLayers[baseIdx].addTo(map);
+            if (!auto) { try { localStorage.setItem('agc_basemap', PROVIDERS[i].id); } catch (e) {} }
+            renderLayerPanel();
+        }
+
+        function renderLayerPanel() {
+            const box = $('layer-panel');
+            if (!box) return;
+            box.innerHTML = '';
+            const h = document.createElement('div');
+            h.className = 'lp-title'; h.textContent = t('mapType');
+            box.appendChild(h);
+            PROVIDERS.forEach((p, i) => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'lp-item' + (i === baseIdx ? ' active' : '');
+                b.innerHTML = '<i class="fa-solid fa-check"></i>';
+                b.appendChild(document.createTextNode(labelOf(i)));
+                b.addEventListener('click', () => { failedProviders.delete(i); setBase(i, false); box.classList.remove('open'); });
+                box.appendChild(b);
+            });
+        }
+
+        providerLayers[baseIdx].addTo(map);
 
         const markersLayer = L.layerGroup().addTo(map);
 
@@ -892,10 +963,18 @@
             map.flyTo([CONFIG.hotel.lat, CONFIG.hotel.lng], 17, { duration: 1.2 });
         });
 
-        $('btn-layer').addEventListener('click', () => setBase((baseIdx + 1) % baseLayers.length));
+        $('btn-layer').addEventListener('click', e => {
+            e.stopPropagation();
+            renderLayerPanel();
+            $('layer-panel').classList.toggle('open');
+        });
+        document.addEventListener('click', e => {
+            if (!e.target.closest('#layer-panel') && !e.target.closest('#btn-layer')) $('layer-panel').classList.remove('open');
+        });
+        map.on('click', () => $('layer-panel').classList.remove('open'));
         function updateLayerTitle() {
-            const names = [t('streets'), t('satellite'), 'OpenStreetMap'];
-            $('btn-layer').title = names[(baseIdx + 1) % names.length];
+            $('btn-layer').title = t('mapType');
+            renderLayerPanel();
         }
 
         $('btn-locate').addEventListener('click', () => {
