@@ -640,7 +640,7 @@
 
                 const icon = safeIcon(r.icono);
                 const isHotel = String(r.hotel || '').toLowerCase() === 'si'
-                    || haversine(lat, lng, CONFIG.hotel.lat, CONFIG.hotel.lng) < 40;
+                    || haversine(lat, lng, CONFIG.hotel.lat, CONFIG.hotel.lng) < 3;   // solo la fila con las coordenadas exactas del hotel
                 const catRaw = String(r.categoria || '').trim();
 
                 const item = {
