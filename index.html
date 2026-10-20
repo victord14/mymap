@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Agua del Corral - Mendoza</title>
+    
+    <!-- Fuentes elegantes de Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Hojas de estilo para Mapa (Leaflet) e Íconos (FontAwesome) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <!-- PapaParse para leer el Google Sheet en tiempo real -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <style>
+        :root {
+            --primary-dark: #1A2B3C;
+            --accent-gold: #C5A059;
+            --bg-light: #F8F9FA;
+            --text-main: #2D3748;
+            --shadow-card: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Encabezado elegante y sofisticado */
+        header {
+            background: linear-gradient(135deg, #111E2B 0%, var(--primary-dark) 100%);
+            color: #FFFFFF;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            border-bottom: 2px solid var(--accent-gold);
+        }
+
+        .brand-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #FFFFFF;
+        }
+
+        .brand-subtitle {
+            font-size: 0.75rem;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* Barra de menú superior */
+        nav.menu-bar {
+            background-color: #FFFFFF;
+            padding: 10px 20px;
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            white-space: nowrap;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            z-index: 999;
+        }
+
+        .menu-item {
+            background: #EDF2F7;
+            color: var(--text-main);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            background: var(--primary-dark);
+            color: #FFFFFF;
+        }
+
+        /* Contenedor del mapa */
+        #map-container {
+            flex: 1;
+            width: 100%;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Estilo elegante para los emergentes (Popups) */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: var(--shadow-card);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .popup-card h4 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.1rem;
+            color: var(--primary-dark);
+            margin-bottom: 6px;
+        }
+
+        .popup-card p {
+            font-size: 0.85rem;
+            color: #4A5568;
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .btn-navigate {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, #A37F38 100%);
+            color: #FFFFFF;
+            padding: 9px 0;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 600;
+            box-shadow: 0 3px 8px rgba(197, 160, 89, 0.3);
+            transition: opacity 0.2s;
+        }
+
+        .btn-navigate:hover {
+            opacity: 0.9;
+        }
+
+        /* Marcadores con ícono FontAwesome dentro del mapa */
+        .custom-pin {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            color: white;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Encabezado de Marca -->
+    <header>
+        <div>
+            <div class="brand-title">Agua del Corral</div>
+            <div class="brand-subtitle">Hotel & Spa • Mendoza</div>
+        </div>
+        <div style="font-size: 1.2rem; color: var(--accent-gold);">
+            <i class="fa-solid fa-compass"></i>
+        </div>
+    </header>
+
+    <!-- Barra de Menú / Filtros Rápidos -->
+    <nav class="menu-bar">
+        <button class="menu-item active" onclick="centerHotel()"><i class="fa-solid fa-bed"></i> Mi Hotel</button>
+        <button class="menu-item"><i class="fa-solid fa-location-dot"></i> Puntos de Interés (Google Sheets)</button>
+    </nav>
+
+    <!-- Contenedor del Mapa -->
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+
+    <!-- Carga de las librerías necesarias de Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Script principal para leer el Google Sheet en tiempo real -->
+    <script>
+        // Coordenadas fijas del Hotel Agua del Corral para centrar inicialmente
+        const hotelLat = -32.89163773879844;
+        const hotelLng = -68.83910524709069;
+
+        // 1. Inicializar el mapa
+        const map = L.map('map', {
+            zoomControl: false
+        }).setView([hotelLat, hotelLng], 16);
