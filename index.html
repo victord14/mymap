@@ -8,6 +8,8 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
+    <link rel="preconnect" href="https://tile.openstreetmap.org" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -432,7 +434,7 @@
         let items = [];
         let userPos = null;
         let userLayer = null;
-        let satellite = false;
+        
 
         const $ = id => document.getElementById(id);
         const t = key => (I18N[lang] && I18N[lang][key]) || I18N.es[key] || key;
@@ -565,15 +567,36 @@
         const map = L.map('map', { zoomControl: false, tap: true }).setView([CONFIG.hotel.lat, CONFIG.hotel.lng], 16);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        const baseStreets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+        const tileOpts = { maxZoom: 19, keepBuffer: 4, updateWhenZooming: false };
+        const baseLayers = [
+            // 0: calles (Esri: rápido y sin clave)
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+                Object.assign({ attribution: 'Tiles &copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, and the GIS User Community' }, tileOpts)),
+            // 1: satélite
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                Object.assign({ attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics' }, tileOpts)),
+            // 2: OpenStreetMap
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                Object.assign({ attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }, tileOpts))
+        ];
+        let baseIdx = 0;
+        function setBase(i) {
+            map.removeLayer(baseLayers[baseIdx]);
+            baseIdx = i;
+            baseLayers[baseIdx].addTo(map);
+            $('btn-layer').classList.toggle('on', baseIdx !== 0);
+            updateLayerTitle();
+        }
+        baseLayers[0].addTo(map);
+
+        // Si el mapa de calles falla repetidamente, pasa solo al otro proveedor
+        let tileErrors = 0;
+        baseLayers[0].on('tileerror', () => {
+            if (++tileErrors === 8 && baseIdx === 0) setBase(2);
         });
-        const baseSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics'
+        baseLayers[2].on('tileerror', () => {
+            if (++tileErrors === 8 && baseIdx === 2) setBase(0);
         });
-        baseStreets.addTo(map);
 
         const markersLayer = L.layerGroup().addTo(map);
 
@@ -869,15 +892,10 @@
             map.flyTo([CONFIG.hotel.lat, CONFIG.hotel.lng], 17, { duration: 1.2 });
         });
 
-        $('btn-layer').addEventListener('click', () => {
-            satellite = !satellite;
-            if (satellite) { map.removeLayer(baseStreets); baseSatellite.addTo(map); }
-            else { map.removeLayer(baseSatellite); baseStreets.addTo(map); }
-            $('btn-layer').classList.toggle('on', satellite);
-            updateLayerTitle();
-        });
+        $('btn-layer').addEventListener('click', () => setBase((baseIdx + 1) % baseLayers.length));
         function updateLayerTitle() {
-            $('btn-layer').title = satellite ? t('streets') : t('satellite');
+            const names = [t('streets'), t('satellite'), 'OpenStreetMap'];
+            $('btn-layer').title = names[(baseIdx + 1) % names.length];
         }
 
         $('btn-locate').addEventListener('click', () => {
