@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     
-    <!-- PapaParse para leer el Google Sheet en tiempo real -->
+    <!-- ⚠️ LIBRERÍA PAPAPARSE (Esencial para leer el Google Sheet) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <style>
@@ -113,98 +113,3 @@
 
         #map {
             width: 100%;
-            height: 100%;
-        }
-
-        /* Estilo elegante para los emergentes (Popups) */
-        .leaflet-popup-content-wrapper {
-            border-radius: 12px;
-            padding: 6px;
-            box-shadow: var(--shadow-card);
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-
-        .popup-card h4 {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.1rem;
-            color: var(--primary-dark);
-            margin-bottom: 6px;
-        }
-
-        .popup-card p {
-            font-size: 0.85rem;
-            color: #4A5568;
-            margin-bottom: 12px;
-            line-height: 1.4;
-        }
-
-        .btn-navigate {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            background: linear-gradient(135deg, var(--accent-gold) 0%, #A37F38 100%);
-            color: #FFFFFF;
-            padding: 9px 0;
-            border-radius: 6px;
-            text-decoration: none;
-            font-size: 0.82rem;
-            font-weight: 600;
-            box-shadow: 0 3px 8px rgba(197, 160, 89, 0.3);
-            transition: opacity 0.2s;
-        }
-
-        .btn-navigate:hover {
-            opacity: 0.9;
-        }
-
-        /* Marcadores con ícono FontAwesome dentro del mapa */
-        .custom-pin {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-radius: 50%;
-            color: white;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-            border: 2px solid white;
-        }
-    </style>
-</head>
-<body>
-
-    <!-- Encabezado de Marca -->
-    <header>
-        <div>
-            <div class="brand-title">Agua del Corral</div>
-            <div class="brand-subtitle">Hotel & Spa • Mendoza</div>
-        </div>
-        <div style="font-size: 1.2rem; color: var(--accent-gold);">
-            <i class="fa-solid fa-compass"></i>
-        </div>
-    </header>
-
-    <!-- Barra de Menú / Filtros Rápidos -->
-    <nav class="menu-bar">
-        <button class="menu-item active" onclick="centerHotel()"><i class="fa-solid fa-bed"></i> Mi Hotel</button>
-        <button class="menu-item"><i class="fa-solid fa-location-dot"></i> Puntos de Interés (Google Sheets)</button>
-    </nav>
-
-    <!-- Contenedor del Mapa -->
-    <div id="map-container">
-        <div id="map"></div>
-    </div>
-
-    <!-- Carga de las librerías necesarias de Leaflet -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Script principal para leer el Google Sheet en tiempo real -->
-    <script>
-        // Coordenadas fijas del Hotel Agua del Corral para centrar inicialmente
-        const hotelLat = -32.89163773879844;
-        const hotelLng = -68.83910524709069;
-
-        // 1. Inicializar el mapa
-        const map = L.map('map', {
-            zoomControl: false
-        }).setView([hotelLat, hotelLng], 16);
