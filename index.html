@@ -160,6 +160,24 @@
         .result-text small { display: block; color: #718096; font-weight: 400; font-size: .75rem; }
         .no-results { padding: 14px; color: #718096; font-size: .88rem; }
 
+        .cat-wrap { position: relative; flex: 1 1 200px; min-width: 0; }
+        .cat-wrap > i { position: absolute; top: 50%; transform: translateY(-50%); color: #718096; font-size: .85rem; pointer-events: none; }
+        .cat-wrap > i:first-child { left: 14px; }
+        .cat-wrap > .caret { right: 14px; font-size: .75rem; }
+        #cat-select {
+            width: 100%; height: 42px;
+            border: 1px solid #E2E8F0; background: #F7FAFC;
+            border-radius: 21px;
+            padding: 0 36px 0 38px;
+            font: 500 16px 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main);
+            appearance: none; -webkit-appearance: none;
+            outline: none; cursor: pointer;
+            text-overflow: ellipsis;
+        }
+        #cat-select:focus { border-color: var(--accent-gold); background: #FFF; box-shadow: 0 0 0 3px rgba(197,160,89,.2); }
+        @media (max-height: 480px) { #cat-select { height: 36px; } }
+
         .chips {
             display: flex;
             gap: 8px;
@@ -322,7 +340,7 @@
             <input id="search" type="search" autocomplete="off" data-i18n-ph="search" placeholder="Buscar lugares…" aria-label="Buscar">
             <div id="results" role="listbox"></div>
         </div>
-        <div class="chips" id="chips"></div>
+        <div class="cat-wrap"><i class="fa-solid fa-filter"></i><select id="cat-select" aria-label="Categoría"></select><i class="fa-solid fa-chevron-down caret"></i></div>
     </div>
 
     <div id="map-container">
@@ -362,7 +380,7 @@
            ===================================================== */
         const I18N = {
             es: {
-                subtitle: 'Hotel & Spa • Mendoza', search: 'Buscar lugares…', all: 'Todos',
+                subtitle: 'Hotel & Spa • Mendoza', search: 'Buscar lugares…', all: 'Todas las categorías', other: 'Otros',
                 hotel: 'Mi hotel', locate: 'Mi ubicación', satellite: 'Satélite', streets: 'Mapa de calles',
                 directions: 'Cómo llegar', fromHotel: 'del hotel', fromYou: 'de tu ubicación', walk: 'a pie',
                 noResults: 'Sin resultados', loading: 'Cargando puntos de interés…',
@@ -373,7 +391,7 @@
                 locating: 'Buscando tu ubicación…', youAreHere: 'Estás aquí', retry: 'Reintentar'
             },
             en: {
-                subtitle: 'Hotel & Spa • Mendoza', search: 'Search places…', all: 'All',
+                subtitle: 'Hotel & Spa • Mendoza', search: 'Search places…', all: 'All categories', other: 'Other',
                 hotel: 'My hotel', locate: 'My location', satellite: 'Satellite', streets: 'Street map',
                 directions: 'Get directions', fromHotel: 'from the hotel', fromYou: 'from your location', walk: 'walk',
                 noResults: 'No results', loading: 'Loading points of interest…',
@@ -384,7 +402,7 @@
                 locating: 'Finding your location…', youAreHere: 'You are here', retry: 'Retry'
             },
             pt: {
-                subtitle: 'Hotel & Spa • Mendoza', search: 'Buscar lugares…', all: 'Todos',
+                subtitle: 'Hotel & Spa • Mendoza', search: 'Buscar lugares…', all: 'Todas as categorias', other: 'Outros',
                 hotel: 'Meu hotel', locate: 'Minha localização', satellite: 'Satélite', streets: 'Mapa de ruas',
                 directions: 'Como chegar', fromHotel: 'do hotel', fromYou: 'da sua localização', walk: 'a pé',
                 noResults: 'Sem resultados', loading: 'Carregando pontos de interesse…',
@@ -646,7 +664,7 @@
                 const item = {
                     row: r, lat, lng, icon, isHotel,
                     color: isHotel ? '#C5A059' : safeColor(r.color),
-                    catKey: norm(catRaw) || icon,
+                    catKey: norm(catRaw) || '__otros',
                     hasCatColumn: !!catRaw
                 };
                 item.marker = L.marker([lat, lng], { icon: makeIcon(item), zIndexOffset: isHotel ? 1000 : 0, keyboard: true, title: name })
@@ -690,7 +708,7 @@
             l = l || lang;
             const r = item.row;
             if (item.hasCatColumn) return String(pick(r, 'categoria', l)).trim();
-            return (ICON_LABELS[item.icon] && ICON_LABELS[item.icon][l]) || capitalize(item.icon.replace(/-/g, ' '));
+            return (I18N[l] && I18N[l].other) || 'Otros';
         }
 
         /* =====================================================
@@ -746,27 +764,34 @@
            CATEGORÍAS (chips)
            ===================================================== */
         function renderChips() {
-            const box = $('chips');
-            box.innerHTML = '';
+            const sel = $('cat-select');
+            sel.innerHTML = '';
 
-            const mk = (key, iconName, label) => {
-                const b = document.createElement('button');
-                b.className = 'chip' + (activeCat === key ? ' active' : '');
-                b.dataset.cat = key;
-                const i = document.createElement('i'); i.className = 'fa-solid fa-' + iconName;
-                b.appendChild(i);
-                b.appendChild(document.createTextNode(label));
-                b.addEventListener('click', () => { activeCat = key; renderChips(); applyFilter(true); });
-                box.appendChild(b);
-            };
-
-            mk('all', 'layer-group', t('all'));
-            const seen = new Set();
+            // Las categorías salen automáticamente de la columna "categoria" del Sheet
+            const groups = new Map();
+            let total = 0;
             items.forEach(it => {
-                if (it.isHotel || seen.has(it.catKey)) return;
-                seen.add(it.catKey);
-                mk(it.catKey, it.icon, getCat(it));
+                if (it.isHotel) return;
+                total++;
+                if (!groups.has(it.catKey)) groups.set(it.catKey, { key: it.catKey, label: getCat(it), n: 0 });
+                groups.get(it.catKey).n++;
             });
+            const list = Array.from(groups.values()).sort((a, b) => {
+                if (a.key === '__otros') return 1;
+                if (b.key === '__otros') return -1;
+                return a.label.localeCompare(b.label, lang);
+            });
+
+            const add = (value, label) => {
+                const o = document.createElement('option');
+                o.value = value; o.textContent = label;
+                sel.appendChild(o);
+            };
+            add('all', t('all') + ' (' + total + ')');
+            list.forEach(g => add(g.key, g.label + ' (' + g.n + ')'));
+
+            if (activeCat !== 'all' && !groups.has(activeCat)) activeCat = 'all';
+            sel.value = activeCat;
         }
 
         function applyFilter(fit) {
@@ -901,6 +926,8 @@
         /* =====================================================
            INICIO
            ===================================================== */
+        $('cat-select').addEventListener('change', e => { activeCat = e.target.value; applyFilter(true); });
+
         (function init() {
             let saved = null;
             try { saved = localStorage.getItem(CONFIG.langKey); } catch (e) {}
